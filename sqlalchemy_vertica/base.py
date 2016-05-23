@@ -175,7 +175,7 @@ class VerticaDialect(PyODBCConnector, PGDialect):
     def get_unique_constraints(self, connection, table_name, schema=None, **kw):
         query = "SELECT constraint_id, constraint_name, column_name \
 FROM v_catalog.constraint_columns WHERE CONSTRAINT_TYPE IN ('p', 'u')\
-AND table_name = {}".format(table_name)
+AND table_name = '{}'".format(table_name)
         if schema is not None:
             query += " AND table_name = '{}'".format(schema)
 
