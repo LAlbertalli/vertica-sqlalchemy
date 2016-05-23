@@ -4,6 +4,12 @@ from sqlalchemy.connectors.pyodbc import PyODBCConnector
 from sqlalchemy.dialects.postgresql.base import PGDialect
 from sqlalchemy.engine import reflection
 
+from collections import defaultdict
+
+# from sqlalchemy import sql, schema, exc, util
+# from sqlalchemy.engine import default
+# from sqlalchemy.sql import compiler, expression
+
 
 class VerticaDialect(PyODBCConnector, PGDialect):
     """ Vertica Dialect using a pyodbc connection and PGDialect """
@@ -57,6 +63,7 @@ class VerticaDialect(PyODBCConnector, PGDialect):
                  "WHERE schema_name='%s')") % (schema)
         rs = connection.execute(query)
         return bool(rs.scalar())
+
 
     def has_table(self, connection, table_name, schema=None):
         if schema is None:
@@ -164,7 +171,27 @@ class VerticaDialect(PyODBCConnector, PGDialect):
             })
         return columns
 
-    
+    @reflection.cache
+    def get_unique_constraints(self, connection, table_name, schema=None, **kw):
+        query = "SELECT constraint_id, constraint_name, column_name \
+FROM v_catalog.constraint_columns WHERE CONSTRAINT_TYPE IN ('p', 'u')\
+AND table_name = {}".format(table_name)
+        if schema is not None:
+            query += " AND table_name = '{}'".format(schema)
+
+        rs = connection.execute(query)
+
+        uniques = defaultdict(lambda: defaultdict(list))
+        for row in rs:
+            uc = uniques[row.constraint_id]
+            uc["name"] = row.constraint_name
+            uc["cols"]+= [row.column_name]
+
+        return [
+            {'name': uc['name'],
+             'column_names': uc["cols"]}
+            for uc in uniques.itervalues()
+        ]
 
     # constraints are enforced on selects, but returning nothing for these
     # methods allows table introspection to work
